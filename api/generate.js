@@ -1,45 +1,38 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import fetch from "node-fetch";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  try {
-    const { prompt, images, batch } = req.body;
+  const { prompt, n = 1 } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt required" });
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          numberOfImages: n,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(500).json(data);
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-    const model = genAI.getGenerativeModel({
-      model: "models/gemini-1.0-pro-vision"
-    });
-
-    const imageParts = (images || []).map(img => ({
-      inlineData: {
-        data: img,
-        mimeType: "image/png"
-      }
+    const images = data.generatedImages.map(img => ({
+      base64: img.image.imageBytes,
     }));
 
-    const results = [];
-
-    for (let i = 0; i < batch; i++) {
-      const result = await model.generateContent([
-        prompt,
-        ...imageParts
-      ]);
-
-      const image = result.response.candidates[0].content.parts
-        .find(p => p.inlineData)?.inlineData?.data;
-
-      if (image) results.push(image);
-    }
-
-    res.status(200).json({ images: results });
+    res.status(200).json({ images });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
