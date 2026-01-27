@@ -1,0 +1,10 @@
+{
+  "name": "gemini-image-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@google/generative-ai": "^0.17.0",
+    "jszip": "^3.10.1"
+  }
+}

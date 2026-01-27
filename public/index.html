@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gemini Image Generator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>Gemini Image Generator</h1>
+
+<textarea id="prompt" placeholder="Describe your image..."></textarea>
+
+<input type="file" id="refs" multiple accept="image/*">
+<input type="number" id="batch" value="1" min="1" max="10">
+
+<p id="cost"></p>
+
+<button onclick="generate()">Generate</button>
+
+<div id="loader" hidden>Generating...</div>
+<div id="images"></div>
+
+<button onclick="downloadAll()">Download All</button>
+
+<script src="script.js"></script>
+</body>
+</html>
