@@ -5,20 +5,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { prompt, n = 1 } = req.body;
-
   try {
+    const { prompt } = req.body;
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${process.env.GOOGLE_API_KEY}`,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
+        process.env.GEMINI_API_KEY,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt,
-          numberOfImages: n,
-        }),
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
       }
     );
 
@@ -28,12 +30,8 @@ export default async function handler(req, res) {
       return res.status(500).json(data);
     }
 
-    const images = data.generatedImages.map(img => ({
-      base64: img.image.imageBytes,
-    }));
-
-    res.status(200).json({ images });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
