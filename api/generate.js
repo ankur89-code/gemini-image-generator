@@ -1,49 +1,28 @@
+// api/generate.js
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+  const { prompts } = req.body;
+
   try {
-    const { prompt, images = [], batch = 1 } = req.body;
+    const tasks = prompts.map(async (prompt) => {
+      // Logic for image generation via Gemini
+      // Note: As of 2026, Gemini generates images via specific tool calls or multimodal outputs
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      
+      // This is a placeholder for the URL/Base64 Gemini returns
+      return { prompt, url: response.text() }; 
+    });
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt required" });
-    }
-
-    const payload = {
-      prompt,
-      numberOfImages: batch
-    };
-
-    if (images.length) {
-      payload.referenceImages = images.map(b64 => ({
-        referenceImage: { bytesBase64Encoded: b64 }
-      }));
-    }
-
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:generateImages?key=" +
-        process.env.GEMINI_API_KEY,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }
-    );
-
-    const json = await response.json();
-
-    if (!response.ok) {
-      return res.status(500).json({ error: json.error?.message || "Imagen error", raw: json });
-    }
-
-    const imgs = json.generatedImages || json.images;
-
-    if (!imgs) {
-      return res.status(500).json({ error: "No images returned", raw: json });
-    }
-
-    const out = imgs.map(i => i.image.bytesBase64Encoded);
-
-    res.status(200).json({ images: out });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const results = await Promise.all(tasks);
+    res.status(200).json({ results });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
