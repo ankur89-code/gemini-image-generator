@@ -1,39 +1,16 @@
-let generatedImages = [];
+async function downloadAll() {
+    const zip = new JSZip();
+    const folder = zip.folder("gemini-images");
 
-async function startBatch() {
-    const btn = document.getElementById('genBtn');
-    const input = document.getElementById('promptInput').value;
-    const prompts = input.split('\n').filter(p => p.trim() !== "");
-    
-    if (prompts.length === 0) return alert("Please enter some prompts!");
+    generatedImages.forEach((img, i) => {
+        // Extract the base64 part from the data URL
+        const base64Content = img.url.split(',')[1];
+        folder.file(`image-${i+1}.png`, base64Content, { base64: true });
+    });
 
-    // Reset UI
-    generatedImages = [];
-    document.getElementById('gallery').innerHTML = "";
-    btn.disabled = true;
-
-    for (let i = 0; i < prompts.length; i++) {
-        btn.innerText = `Generating ${i + 1}/${prompts.length}...`;
-        
-        try {
-            const res = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompts: [prompts[i]] }) // Send ONLY ONE prompt
-            });
-
-            if (!res.ok) throw new Error("API Limit reached");
-
-            const data = await res.json();
-            generatedImages.push(...data.results);
-            renderGallery(); // Show images as they arrive
-            
-        } catch (err) {
-            console.error("Error on prompt:", prompts[i], err);
-        }
-    }
-
-    btn.innerText = "Generate";
-    btn.disabled = false;
-    document.getElementById('dlBtn').classList.remove('hidden');
+    const content = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = "batch-images.zip";
+    link.click();
 }
