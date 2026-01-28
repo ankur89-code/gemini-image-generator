@@ -1,70 +1,47 @@
-let generatedImages = [];
+export const config = {
+  runtime: "edge"
+};
 
-function estimateCost(batch) {
-  // approx Gemini image cost
-  return `$${(batch * 0.02).toFixed(2)} estimated`;
-}
+export default async function handler(req) {
+  try {
+    const { prompt, images = [], batch = 1 } = await req.json();
 
-async function generate() {
-  const prompt = document.getElementById("prompt").value;
-  const files = document.getElementById("refs").files;
-  const batch = Number(document.getElementById("batch").value);
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "Prompt required" }), { status: 400 });
+    }
 
-  document.getElementById("cost").innerText = estimateCost(batch);
+    const apiKey = process.env.GEMINI_API_KEY;
 
-  document.getElementById("loader").hidden = false;
-  document.getElementById("images").innerHTML = "";
-  generatedImages = [];
+    const payload = {
+      prompt,
+      numberOfImages: batch,
+      ...(images.length && {
+        referenceImages: images.map(b64 => ({
+          referenceImage: { bytesBase64Encoded: b64 }
+        }))
+      })
+    };
 
-  const images = [];
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:generateImages?key=" + apiKey,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }
+    );
 
-  for (const file of files) {
-    const base64 = await toBase64(file);
-    images.push(base64.split(",")[1]);
+    const json = await res.json();
+
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: json.error?.message || "Generation failed" }), { status: 500 });
+    }
+
+    const out = json.generatedImages.map(i => i.image.bytesBase64Encoded);
+
+    return new Response(JSON.stringify({ images: out }), { status: 200 });
+
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
-
-  const res = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, images, batch })
-  });
-
-  const data = await res.json();
-  document.getElementById("loader").hidden = true;
-
-  if (data.error) {
-    alert(data.error);
-    return;
-  }
-
-  data.images.forEach(img => {
-    const image = document.createElement("img");
-    image.src = `data:image/png;base64,${img}`;
-    document.getElementById("images").appendChild(image);
-    generatedImages.push(img);
-  });
-}
-
-function toBase64(file) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.readAsDataURL(file);
-  });
-}
-
-async function downloadAll() {
-  if (!generatedImages.length) return;
-
-  const zip = new JSZip();
-
-  generatedImages.forEach((img, i) => {
-    zip.file(`image_${i + 1}.png`, img, { base64: true });
-  });
-
-  const blob = await zip.generateAsync({ type: "blob" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "images.zip";
-  a.click();
 }
