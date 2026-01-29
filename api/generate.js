@@ -12,30 +12,32 @@ export default async function handler(req, res) {
 
     const API_KEY = process.env.GEMINI_API_KEY;
     if (!API_KEY) {
-      return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+      throw new Error("Missing GEMINI_API_KEY");
     }
 
     const endpoint =
-      "https://generativelanguage.googleapis.com/v1/models/imagen-3.0-generate-001:generateImages?key=" +
-      API_KEY;
+      "https://generativelanguage.googleapis.com/v1beta/models/imagen-2:generateImages";
 
     const images = [];
 
     for (let i = 0; i < batch; i++) {
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${endpoint}?key=${API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: {
-            text: prompt
-          }
+          prompt,
+          numberOfImages: 1
         })
       });
 
       const data = await response.json();
 
-      if (!data?.images?.[0]?.bytesBase64Encoded) {
+      if (!response.ok) {
         console.error("Imagen error:", data);
+        throw new Error(data.error?.message || "Imagen API failed");
+      }
+
+      if (!data.images || !data.images[0]?.bytesBase64Encoded) {
         throw new Error("No images returned from Imagen");
       }
 
@@ -45,8 +47,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ images });
   } catch (err) {
     console.error("API ERROR:", err);
-    return res.status(500).json({
-      error: err.message || "Image generation failed"
-    });
+    return res.status(500).json({ error: err.message });
   }
 }
