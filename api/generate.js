@@ -1,37 +1,46 @@
-// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+export const config = {
+  runtime: "nodejs",
+};
+
 export default async function handler(req, res) {
-  console.log("--- New Generation Request ---");
-  console.log("Prompt received:", req.body.prompts[0]);
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const { prompt, count = 1 } = req.body;
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: req.body.prompts[0] }] }],
-      generationConfig: { responseModalities: ["IMAGE"] }
-    });
-
-    const response = await result.response;
-    
-    // LOG THE FULL RESPONSE FOR DEBUGGING
-    console.log("Gemini API Full Response:", JSON.stringify(response, null, 2));
-
-    const imagePart = response.candidates[0].content.parts.find(p => p.inlineData);
-    
-    if (!imagePart) {
-        console.error("DEBUG: No image found in response parts.");
-        throw new Error("Model returned text instead of an image.");
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt required" });
     }
 
-    res.status(200).json({ 
-      results: [{ prompt: req.body.prompts[0], url: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}` }] 
-    });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-  } catch (error) {
-    console.error("CRITICAL API ERROR:", error.message);
-    res.status(500).json({ error: error.message });
+    const images = [];
+
+    for (let i = 0; i < count; i++) {
+      const result = await genAI.getGenerativeModel({
+        model: "imagen-3.0-generate-001",
+      }).generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+      });
+
+      const imageBase64 =
+        result.response.candidates[0].content.parts[0].inlineData.data;
+
+      images.push(imageBase64);
+    }
+
+    res.status(200).json({ images });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 }

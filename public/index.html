@@ -1,21 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Gemini Batch Gen</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>Gemini Image Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    textarea { width: 100%; height: 100px; }
+    img { max-width: 300px; margin: 10px 10px 0 0; border: 1px solid #ccc; }
+    #loader { display: none; }
+  </style>
 </head>
-<body class="bg-gray-900 text-white p-10">
-    <div class="max-w-2xl mx-auto">
-        <h1 class="text-2xl mb-4">Batch Image Generator</h1>
-        <textarea id="promptInput" class="w-full h-40 p-4 text-black rounded" placeholder="Prompt 1&#10;Prompt 2..."></textarea>
-        <div class="mt-4 flex gap-2">
-            <button onclick="startBatch()" id="genBtn" class="bg-blue-600 px-6 py-2 rounded">Generate</button>
-            <button onclick="downloadAll()" id="dlBtn" class="hidden bg-green-600 px-6 py-2 rounded">Download ZIP</button>
-        </div>
-        <div id="gallery" class="grid grid-cols-2 gap-4 mt-10"></div>
-    </div>
-    <script src="generate.js"></script>
+<body>
+
+<h1>Gemini Image Generator</h1>
+
+<textarea id="prompt">an apple on white background</textarea><br><br>
+
+<label>Images:</label>
+<input type="number" id="count" value="1" min="1" max="4" /><br><br>
+
+<button onclick="generate()">Generate</button>
+<p id="loader">Generating… ⏳</p>
+
+<div id="images"></div>
+
+<script>
+async function generate() {
+  const prompt = document.getElementById("prompt").value;
+  const count = Number(document.getElementById("count").value);
+
+  document.getElementById("loader").style.display = "block";
+  document.getElementById("images").innerHTML = "";
+
+  const res = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, count })
+  });
+
+  const data = await res.json();
+  document.getElementById("loader").style.display = "none";
+
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  data.images.forEach(b64 => {
+    const img = document.createElement("img");
+    img.src = `data:image/png;base64,${b64}`;
+    document.getElementById("images").appendChild(img);
+  });
+}
+</script>
+
 </body>
 </html>
