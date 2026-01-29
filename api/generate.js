@@ -1,7 +1,4 @@
-export const config = {
-  runtime: "nodejs",
-  maxDuration: 60
-};
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -9,31 +6,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, count = 1 } = req.body;
+    const { prompt, count } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
-    }
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1/models/imagen-3.0-generate-002:generateImages?key=" +
-        process.env.GEMINI_API_KEY,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          numberOfImages: Math.min(count, 4)
-        })
-      }
+    const model = genAI.getGenerativeModel({
+      model: "imagen-3.0-generate-001"
+    });
+
+    const result = await model.generateImages({
+      prompt,
+      numberOfImages: Number(count || 1)
+    });
+
+    const images = result.images.map(
+      img => `data:image/png;base64,${img.base64}`
     );
 
-    const data = await response.json();
+    res.status(200).json({ images });
 
-    if (!response.ok) {
-      throw new Error(JSON.stringify(data));
-    }
-
-    const images = data.images.map(img => img.imageBase64);
-
-    res.status(200).json
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+}
