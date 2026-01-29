@@ -5,7 +5,6 @@ export default async function handler(req, res) {
 
   try {
     const { prompt, batch = 1 } = req.body;
-
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });
     }
@@ -30,15 +29,27 @@ export default async function handler(req, res) {
         })
       });
 
-      const data = await response.json();
+      const rawText = await response.text(); // 👈 IMPORTANT
+
+      if (!rawText) {
+        throw new Error("Empty response from Google API (billing or access issue)");
+      }
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.error("RAW RESPONSE:", rawText);
+        throw new Error("Non-JSON response from Google API");
+      }
 
       if (!response.ok) {
-        console.error("Imagen error:", data);
+        console.error("Google API error:", data);
         throw new Error(data.error?.message || "Imagen API failed");
       }
 
       if (!data.images || !data.images[0]?.bytesBase64Encoded) {
-        throw new Error("No images returned from Imagen");
+        throw new Error("No images returned");
       }
 
       images.push(data.images[0].bytesBase64Encoded);
